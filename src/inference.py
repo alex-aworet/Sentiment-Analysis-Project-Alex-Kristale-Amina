@@ -4,7 +4,7 @@ Allows users to pass in new text and get sentiment predictions.
 """
 
 import torch
-from transformers import BertForSequenceClassification, AutoTokenizer
+from transformers import AutoTokenizer
 from typing import List, Dict, Union
 import sys
 import os
@@ -24,7 +24,7 @@ class SentimentPredictor:
         model_path: str = 'best_model_state.bin',
         model_name: str = MODEL_NAME,
         n_classes: int = 3,
-        max_len: int = 160
+        max_len: int = 128  # <- make this match training
     ):
         """
         Initialize the sentiment predictor.

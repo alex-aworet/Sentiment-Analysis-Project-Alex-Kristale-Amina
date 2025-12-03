@@ -1,9 +1,10 @@
 # Torch ML libraries
 from transformers import (
-    BertForSequenceClassification,
+    AutoModelForSequenceClassification,
     AutoTokenizer,
     get_linear_schedule_with_warmup
 )
+
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -24,7 +25,7 @@ from src.data_processing import (
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set the model name
-MODEL_NAME = 'bert-base-cased'
+MODEL_NAME = 'distilbert-base-uncased'
 
 
 def get_device() -> torch.device:
@@ -36,24 +37,14 @@ def create_model(
     n_classes: int,
     model_name: str = MODEL_NAME,
     dropout: float = 0.1
-) -> BertForSequenceClassification:
-    """
-    Create a BERT model for sequence classification.
-
-    Args:
-        n_classes: Number of output classes
-        model_name: Pre-trained model name
-        dropout: Dropout probability for classifier
-    """
+):
     device = get_device()
-    model = BertForSequenceClassification.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
-        num_labels=n_classes,
-        hidden_dropout_prob=dropout,
-        attention_probs_dropout_prob=dropout
+        num_labels=n_classes
     )
-    model = model.to(device)
-    return model
+    return model.to(device)
+
 
 
 def create_optimizer_and_scheduler(
@@ -285,8 +276,8 @@ def main():
     print("=" * 50)
 
     # Initialize tokenizer
-    tokenizer_name = "bert-base-cased"
-    max_len = 160
+    tokenizer_name = "distilbert-base-uncased"
+    max_len = 128
     print(f"Using tokenizer: {tokenizer_name}")
     print(f"Max sequence length: {max_len}")
 

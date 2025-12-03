@@ -110,7 +110,7 @@ def test_train_epoch():
     model.train()
 
     # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["good app", "bad app", "okay app"]
     labels = ["positive", "negative", "neutral"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -148,7 +148,7 @@ def test_eval_model():
     model.eval()
 
     # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["good app", "bad app"]
     labels = ["positive", "negative"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -172,7 +172,7 @@ def test_eval_model_no_gradient():
     device = get_device()
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["test"]
     labels = ["positive"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -197,7 +197,7 @@ def test_train_model():
     model = create_model(n_classes=3)
 
     # Create minimal datasets
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     train_texts = ["good", "bad", "okay", "great"]
     train_labels = ["positive", "negative", "neutral", "positive"]
     val_texts = ["nice", "poor"]
@@ -249,7 +249,7 @@ def test_train_model_saves_best_model():
     """Test that train_model saves the best model based on validation."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["good", "bad", "okay"]
     labels = ["positive", "negative", "neutral"]
 
@@ -289,7 +289,7 @@ def test_train_model_verbose_false():
     """Test train_model with verbose=False doesn't print."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["test", "test2", "test3"]
     labels = ["positive", "negative", "neutral"]
 
@@ -323,7 +323,7 @@ def test_train_model_verbose_true():
     """Test train_model with verbose=True prints progress."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["test1", "test2", "test3"]
     labels = ["positive", "negative", "neutral"]
 
@@ -359,7 +359,7 @@ def test_train_model_multiple_epochs_verbose():
     """Test train_model over multiple epochs with verbose output."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     texts = ["good app", "bad app", "okay app", "great", "poor"]
     labels = ["positive", "negative", "neutral", "positive", "negative"]
 

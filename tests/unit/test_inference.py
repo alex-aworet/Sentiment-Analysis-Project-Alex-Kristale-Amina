@@ -3,7 +3,6 @@ test_inference.py - Unit tests for inference.py
 """
 
 import torch
-from transformers import AutoTokenizer
 import os
 import sys
 import tempfile
@@ -45,7 +44,7 @@ def test_sentiment_predictor_initialization(mock_model_path):
 
     assert predictor is not None
     assert predictor.device is not None
-    assert predictor.max_len == 160
+    assert predictor.max_len == 128
     assert predictor.n_classes == 3
     assert predictor.tokenizer is not None
     assert predictor.model is not None

@@ -19,7 +19,7 @@ from src.model import create_model, get_device, MODEL_NAME
 class SentimentPredictor:
     """Class for making sentiment predictions on new text."""
 
-    def __init__(
+    def _init_(
         self,
         model_path: str = 'best_model_state.bin',
         model_name: str = MODEL_NAME,

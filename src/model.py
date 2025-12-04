@@ -25,7 +25,7 @@ from src.data_processing import (
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set the model name
-MODEL_NAME = 'distilbert-base-uncased'
+MODEL_NAME = 'prajjwal1/bert-tiny'
 
 
 def get_device() -> torch.device:
@@ -276,7 +276,7 @@ def main():
     print("=" * 50)
 
     # Initialize tokenizer
-    tokenizer_name = "distilbert-base-uncased"
+    tokenizer_name = "prajjwal1/bert-tiny"
     max_len = 128
     print(f"Using tokenizer: {tokenizer_name}")
     print(f"Max sequence length: {max_len}")

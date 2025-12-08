@@ -19,13 +19,15 @@ from src.model import create_model, get_device, MODEL_NAME
 class SentimentPredictor:
     """Class for making sentiment predictions on new text."""
 
-    def _init_(
+    def __init__(
         self,
         model_path: str = 'best_model_state.bin',
         model_name: str = MODEL_NAME,
         n_classes: int = 3,
-        max_len: int = 128  # <- make this match training
+        max_len: int = 160  # pour matcher l'entraînement
     ):
+        ...
+
         """
         Initialize the sentiment predictor.
 
@@ -137,6 +139,12 @@ def main():
         default='best_model_state.bin',
         help='Path to the trained model weights'
     )
+    parser.add_argument(
+        '--text',
+        type=str,
+        default=None,
+        help='Text to analyze (if provided, runs once and exits)'
+    )
 
     args = parser.parse_args()
 
@@ -150,6 +158,17 @@ def main():
     except Exception as e:
         print(f"Error loading model: {e}")
         print("Make sure you have trained the model first using model.py")
+        return
+
+    # texte passé en argument CLI
+    if args.text is not None:
+        result = predictor.predict(args.text)
+        print(f"\nText: {result['text']}")
+        print(f"Sentiment: {result['sentiment'].upper()}")
+        print(f"Confidence: {result['confidence']:.2%}")
+        print("\nProbabilities:")
+        for sentiment, prob in result['probabilities'].items():
+            print(f"  {sentiment.capitalize()}: {prob:.2%}")
         return
 
     print("\nType 'quit' or 'exit' to stop")

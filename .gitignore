@@ -19,6 +19,8 @@
 .env.*
 venv/
 
+models/
+
 # Local configuration that shouldn't be shared
 *.local
 

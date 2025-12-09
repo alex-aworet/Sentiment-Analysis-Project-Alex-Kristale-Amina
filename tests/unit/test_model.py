@@ -397,7 +397,7 @@ def test_train_model_multiple_epochs_verbose():
 
 def test_model_name_constant():
     """Test that MODEL_NAME constant is properly defined."""
-    assert MODEL_NAME == 'bert-base-cased'
+    assert MODEL_NAME == 'prajjwal1/bert-tiny'
     assert isinstance(MODEL_NAME, str)
 
 

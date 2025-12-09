@@ -1,9 +1,10 @@
 # Torch ML libraries
 from transformers import (
-    BertForSequenceClassification,
+    AutoModelForSequenceClassification,
     AutoTokenizer,
     get_linear_schedule_with_warmup
 )
+
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -24,7 +25,7 @@ from src.data_processing import (
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set the model name
-MODEL_NAME = 'bert-base-cased'
+MODEL_NAME = 'prajjwal1/bert-tiny'
 
 
 def get_device() -> torch.device:
@@ -36,24 +37,18 @@ def create_model(
     n_classes: int,
     model_name: str = MODEL_NAME,
     dropout: float = 0.1
-) -> BertForSequenceClassification:
-    """
-    Create a BERT model for sequence classification.
-
-    Args:
-        n_classes: Number of output classes
-        model_name: Pre-trained model name
-        dropout: Dropout probability for classifier
-    """
+):
     device = get_device()
-    model = BertForSequenceClassification.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
-        num_labels=n_classes,
-        hidden_dropout_prob=dropout,
-        attention_probs_dropout_prob=dropout
+        num_labels=n_classes
     )
-    model = model.to(device)
-    return model
+    model.config.hidden_dropout_prob = dropout
+    model.config.attention_probs_dropout_prob = dropout
+    model.dropout.p = dropout
+    
+    return model.to(device)
+
 
 
 def create_optimizer_and_scheduler(
@@ -164,7 +159,7 @@ def train_model(
     learning_rate: float = 2e-5,
     use_amp: bool = False,
     gradient_accumulation_steps: int = 1,
-    model_save_path: str = 'best_model_state.bin',
+    model_save_path: str = 'models/best_model_state.bin',
     verbose: bool = True
 ) -> Dict[str, List[float]]:
     """
@@ -197,6 +192,7 @@ def train_model(
 
     history = defaultdict(list)
     best_accuracy = 0
+    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
 
     for epoch in range(epochs):
         if verbose:
@@ -285,8 +281,8 @@ def main():
     print("=" * 50)
 
     # Initialize tokenizer
-    tokenizer_name = "bert-base-cased"
-    max_len = 160
+    tokenizer_name = "prajjwal1/bert-tiny"
+    max_len = 128
     print(f"Using tokenizer: {tokenizer_name}")
     print(f"Max sequence length: {max_len}")
 
@@ -392,7 +388,7 @@ def main():
         learning_rate=learning_rate,
         use_amp=use_amp,
         gradient_accumulation_steps=gradient_accumulation_steps,
-        model_save_path='best_model_state.bin'
+        model_save_path='models/best_model_state.bin'
     )
 
     # ==========================
@@ -412,7 +408,7 @@ def main():
 
     best_val_acc = max(history['val_acc'])
     print(f"\nBest validation accuracy: {best_val_acc:.4f}")
-    print("Best model saved to: best_model_state.bin")
+    print("Best model saved to: models/best_model_state.bin")
 
 
 if __name__ == '__main__':

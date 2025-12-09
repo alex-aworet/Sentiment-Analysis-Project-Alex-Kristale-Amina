@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  sentiment-app:
+    build: .
+    stdin_open: true 
+    tty: true          
+    container_name: sentiment_app
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app

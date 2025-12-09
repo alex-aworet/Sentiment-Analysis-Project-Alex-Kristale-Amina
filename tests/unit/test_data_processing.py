@@ -10,7 +10,7 @@ from transformers import AutoTokenizer
 import os
 import sys
 sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(_file_), "..", ".."))
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 )
 import src.data_processing as dp  # noqa: E402
 from src.data_processing import (  # noqa: E402
@@ -130,7 +130,7 @@ def test_review_dataset_len():
 # ---------- MAIN EXECUTION BLOCK ----------
 
 def test_main_block(monkeypatch, tmp_path):
-    """Couvre le bloc if _name_ == '_main_' (lignes 137–155)."""
+    """Couvre le bloc if __name__ == '__main__' (lignes 137–155)."""
 
     # Mock dataset
     df_mock = pd.DataFrame({
@@ -150,4 +150,4 @@ def test_main_block(monkeypatch, tmp_path):
     monkeypatch.setattr(dp, "load_file", mock_load_file)
     monkeypatch.setattr(dp, "check_columns", mock_check_columns)
     monkeypatch.setattr(builtins, "print", lambda *a, **k: None)
-    runpy.run_module("src.data_processing", run_name="_main_")
+    runpy.run_module("src.data_processing", run_name="__main__")

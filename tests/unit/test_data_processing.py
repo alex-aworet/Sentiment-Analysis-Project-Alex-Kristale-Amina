@@ -3,15 +3,17 @@ test_data_processing.py
 """
 
 import pandas as pd
+import builtins
+import runpy
 import torch
 from transformers import AutoTokenizer
 import os
 import sys
-import tempfile
 sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    )
-from src.data_processing import (
+    os.path.abspath(os.path.join(os.path.dirname(_file_), "..", ".."))
+)
+import src.data_processing as dp  # noqa: E402
+from src.data_processing import (  # noqa: E402
     clean_text,
     add_sentiment_label,
     clean_dataset,
@@ -22,8 +24,10 @@ from src.data_processing import (
 
 # ---------- CLEAN TEXT ----------
 
+
 def test_clean_text_lowercase():
     assert clean_text("HELLO WORLD!") == "hello world"
+
 
 def test_clean_text_removes_urls_mentions_symbols():
     text = "Visit http://test.com @user #wow!!!"
@@ -94,7 +98,7 @@ def test_split_data_no_stratify():
 
 def test_tokenize_data_returns_tensors():
     df = pd.DataFrame({"content": ["this app is good", "bad performance"]})
-    tokens = tokenize_data(df, tokenizer_name="bert-base-cased")
+    tokens = tokenize_data(df, tokenizer_name="prajjwal1/bert-tiny")
     assert isinstance(tokens["input_ids"], torch.Tensor)
     assert tokens["input_ids"].shape[0] == 2
 
@@ -102,7 +106,7 @@ def test_tokenize_data_returns_tensors():
 # ---------- REVIEW DATASET ----------
 
 def test_review_dataset_output_shape():
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["good app", "bad app"]
     labels = ["positive", "negative"]
     ds = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -115,9 +119,35 @@ def test_review_dataset_output_shape():
 
 
 def test_review_dataset_len():
-    """Test __len__ method of ReviewDataset (covers line 109)"""
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    """Test _len_ method of ReviewDataset (covers line 109)"""
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["text1", "text2", "text3"]
     labels = ["positive", "neutral", "negative"]
     ds = ReviewDataset(texts, labels, tokenizer, max_len=16)
     assert len(ds) == 3
+
+
+# ---------- MAIN EXECUTION BLOCK ----------
+
+def test_main_block(monkeypatch, tmp_path):
+    """Couvre le bloc if _name_ == '_main_' (lignes 137–155)."""
+
+    # Mock dataset
+    df_mock = pd.DataFrame({
+        "content": ["good app", "bad update"],
+        "score": [5, 1],
+        "sentiment": ["positive", "negative"]
+    })
+
+    # Mock des fonctions utilisées dans le main
+    def mock_load_file(path):
+        return df_mock
+
+    def mock_check_columns(df):
+        return True
+
+    # Appliquer les patches
+    monkeypatch.setattr(dp, "load_file", mock_load_file)
+    monkeypatch.setattr(dp, "check_columns", mock_check_columns)
+    monkeypatch.setattr(builtins, "print", lambda *a, **k: None)
+    runpy.run_module("src.data_processing", run_name="_main_")

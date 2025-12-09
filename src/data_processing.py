@@ -80,8 +80,8 @@ def split_data(
 
 def tokenize_data(
         df: pd.DataFrame,
-        tokenizer_name: str = "bert-base-cased",
-        max_len: int = 160):
+        tokenizer_name: str = "prajjwal1/bert-tiny",
+        max_len: int = 128):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     encodings = tokenizer(
         list(df["content"]),
@@ -98,17 +98,17 @@ def tokenize_data(
 # ==========================
 
 class ReviewDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer, max_len):
+    def _init_(self, texts, labels, tokenizer, max_len):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.label_map = {"negative": 0, "neutral": 1, "positive": 2}
 
-    def __len__(self):
+    def _len_(self):
         return len(self.texts)
 
-    def __getitem__(self, idx):
+    def _getitem_(self, idx):
         text = str(self.texts[idx])
         label = self.label_map[self.labels[idx]]
         encoding = self.tokenizer.encode_plus(
@@ -133,7 +133,7 @@ class ReviewDataset(Dataset):
 # MAIN EXECUTION PIPELINE
 # ==========================
 
-if __name__ == "__main__":
+if __name__ == "_main_":
     path = "data/dataset.csv"
     print(">>> Loading dataset from data_extraction module...")
     df = load_file(path)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
             train_df["content"].to_numpy(),
             train_df["sentiment"].to_numpy(),
             tokenizer,
-            max_len=160
+            max_len=128
         )
         print(f" Ready: {len(train_dataset)} training samples.")
     else:

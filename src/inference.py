@@ -21,10 +21,10 @@ class SentimentPredictor:
 
     def __init__(
         self,
-        model_path: str = 'best_model_state.bin',
+        model_path: str = 'models/best_model_state.bin',
         model_name: str = MODEL_NAME,
         n_classes: int = 3,
-        max_len: int = 160  # pour matcher l'entraînement
+        max_len: int = 128  # pour matcher l'entraînement
     ):
         ...
 
@@ -55,7 +55,16 @@ class SentimentPredictor:
         # Load model
         logging.info(f"Loading model from: {model_path}")
         self.model = create_model(n_classes=n_classes, model_name=model_name)
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"Model file not found at {model_path}. "
+                "Train the model first using model.py"
+            )
+
+        self.model.load_state_dict(
+            torch.load(model_path, map_location=self.device)
+        )
+
         self.model.eval()
         print(f"Model loaded successfully on device: {self.device}")
 
@@ -136,7 +145,7 @@ def main():
     parser.add_argument(
         '--model_path',
         type=str,
-        default='best_model_state.bin',
+        default='models/best_model_state.bin',
         help='Path to the trained model weights'
     )
     parser.add_argument(
@@ -176,7 +185,12 @@ def main():
 
     # Interactive mode - continuously handle user input
     while True:
-        text = input("\nEnter text to analyze: ").strip()
+        try:
+            text = input("\nEnter text to analyze: ").strip()
+        except EOFError:
+            print("\nNo interactive input available. Exiting.")
+            break
+
 
         if text.lower() in ['quit', 'exit', 'q']:
             print("Goodbye!")

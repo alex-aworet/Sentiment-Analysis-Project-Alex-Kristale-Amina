@@ -1,0 +1,5 @@
+outs:
+- md5: 45d4b3fac603574db625a80eeea36d18
+  size: 17562063
+  hash: md5
+  path: best_model_state.bin

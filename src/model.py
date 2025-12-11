@@ -16,12 +16,13 @@ import sys
 import os
 
 # Import data processing functions and dataset class
-from src.data_extraction import load_file, check_columns
-from src.data_processing import (
+from data_processing import (
     clean_dataset,
     split_data,
     ReviewDataset
 )
+
+from data_processing import load_file, check_columns
 
 from sklearn.metrics import classification_report
 

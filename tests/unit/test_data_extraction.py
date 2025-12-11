@@ -137,4 +137,3 @@ def test_end_to_end():
     # one column removed
     loaded_df = loaded_df.drop(columns=["at"])
     assert check_columns(loaded_df) is False
-

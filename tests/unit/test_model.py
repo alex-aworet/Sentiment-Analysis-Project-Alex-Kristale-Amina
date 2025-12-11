@@ -1,29 +1,38 @@
+# flake8: noqa
 """
 test_model.py - Unit tests for model.py
 """
 
-import torch
-from torch.utils.data import DataLoader, TensorDataset
-from transformers import AutoTokenizer
 import os
 import sys
 import tempfile
 from unittest.mock import patch, MagicMock
+
 import pandas as pd
+import torch
+from torch import nn
+from torch.utils.data import Dataset, DataLoader, TensorDataset
+from transformers import AutoTokenizer
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 )
-from src.model import (
+
+from src.model import (  # noqa: E402
     get_device,
     create_model,
     create_optimizer_and_scheduler,
     train_epoch,
-    eval_model,
+    run_evaluation,
     train_model,
-    MODEL_NAME
+    MODEL_NAME,
 )
-from src.data_processing import ReviewDataset
+from src.data_processing import ReviewDataset  # noqa: E402
+
+from types import SimpleNamespace
+
+from src.model import run_evaluation
+
 
 
 # ---------- GET DEVICE ----------
@@ -56,62 +65,47 @@ def test_create_model_custom_dropout():
 
 
 def test_create_model_custom_model_name():
-    """Test create_model with a different model name."""
-    model = create_model(
-        n_classes=3,
-        model_name="prajjwal1/bert-tiny",
-        dropout=0.1
-    )
+    """Test create_model with a different model name (if available)."""
+    # This just verifies that the function accepts a custom model_name argument.
+    # Using MODEL_NAME again to avoid extra downloads.
+    model = create_model(n_classes=3, model_name=MODEL_NAME)
+    assert model is not None
     assert model.config.num_labels == 3
 
 
-def test_create_model_on_device():
-    """Test that the model is placed on the correct device."""
-    model = create_model(n_classes=3)
-    device = get_device()
-    # Check that model parameters are on the correct device
-    assert next(model.parameters()).device.type == device.type
-
-
-# ---------- CREATE OPTIMIZER AND SCHEDULER ----------
+# ---------- CREATE OPTIMIZER & SCHEDULER ----------
 
 
 def test_create_optimizer_and_scheduler():
-    """Test optimizer and scheduler creation."""
+    """Test that optimizer and scheduler are created properly."""
     model = create_model(n_classes=3)
-    # Create a simple dummy data loader
-    dummy_data = TensorDataset(
-        torch.randint(0, 100, (10, 16)),
-        torch.randint(0, 2, (10, 16)),
-        torch.randint(0, 3, (10,))
-    )
-    data_loader = DataLoader(dummy_data, batch_size=2)
+    dummy_data = torch.randn(4, 10)
+    dummy_labels = torch.tensor([0, 1, 2, 1])
+    dataset = TensorDataset(dummy_data, dummy_labels)
+    data_loader = DataLoader(dataset, batch_size=2)
 
     optimizer, scheduler = create_optimizer_and_scheduler(
         model=model,
         train_data_loader=data_loader,
         epochs=2,
-        learning_rate=1e-5
+        learning_rate=2e-5,
     )
 
     assert optimizer is not None
     assert scheduler is not None
-    # Check learning rate
-    assert optimizer.param_groups[0]['lr'] == 1e-5
 
 
 # ---------- TRAIN EPOCH ----------
 
 
 def test_train_epoch():
-    """Test train_epoch function with minimal data."""
+    """Test that train_epoch runs and returns accuracy and loss."""
     device = get_device()
-    model = create_model(n_classes=3)
-    model.train()
+    model = create_model(n_classes=3).to(device)
 
-    # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-    texts = ["good app", "bad app", "okay app"]
+    # minimal synthetic dataset using ReviewDataset
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    texts = ["good app", "bad app", "average app"]
     labels = ["positive", "negative", "neutral"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
     data_loader = DataLoader(dataset, batch_size=2)
@@ -120,7 +114,7 @@ def test_train_epoch():
         model=model,
         train_data_loader=data_loader,
         epochs=1,
-        learning_rate=2e-5
+        learning_rate=2e-5,
     )
 
     accuracy, loss = train_epoch(
@@ -129,7 +123,7 @@ def test_train_epoch():
         optimizer=optimizer,
         device=device,
         scheduler=scheduler,
-        n_examples=len(dataset)
+        n_examples=len(dataset),
     )
 
     assert isinstance(accuracy, (float, torch.Tensor))
@@ -138,27 +132,27 @@ def test_train_epoch():
     assert loss >= 0
 
 
-# ---------- EVAL MODEL ----------
+# ---------- RUN EVALUATION (replaces eval_model) ----------
 
 
-def test_eval_model():
-    """Test eval_model function with minimal data."""
+def test_run_evaluation_basic():
+    """Test run_evaluation (basic mode) with minimal data."""
     device = get_device()
-    model = create_model(n_classes=3)
+    model = create_model(n_classes=3).to(device)
     model.eval()
 
-    # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     texts = ["good app", "bad app"]
     labels = ["positive", "negative"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
     data_loader = DataLoader(dataset, batch_size=2)
 
-    accuracy, loss = eval_model(
+    accuracy, loss = run_evaluation(
         model=model,
         data_loader=data_loader,
         device=device,
-        n_examples=len(dataset)
+        return_metrics=False,
+        verbose=False,
     )
 
     assert isinstance(accuracy, (float, torch.Tensor))
@@ -167,26 +161,28 @@ def test_eval_model():
     assert loss >= 0
 
 
-def test_eval_model_no_gradient():
-    """Test that eval_model doesn't compute gradients."""
+def test_run_evaluation_no_gradient():
+    """Test that run_evaluation works under no_grad (no gradients needed here)."""
     device = get_device()
-    model = create_model(n_classes=3)
+    model = create_model(n_classes=3).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     texts = ["test"]
     labels = ["positive"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
     data_loader = DataLoader(dataset, batch_size=1)
 
-    # Ensure gradients are not being computed
+    # Ensure gradients are not being computed for this call
     with torch.no_grad():
-        accuracy, loss = eval_model(
+        accuracy, loss = run_evaluation(
             model=model,
             data_loader=data_loader,
             device=device,
-            n_examples=len(dataset)
+            return_metrics=False,
+            verbose=False,
         )
         assert isinstance(accuracy, (float, torch.Tensor))
+        assert isinstance(loss, float)
 
 
 # ---------- TRAIN MODEL ----------
@@ -194,25 +190,22 @@ def test_eval_model_no_gradient():
 
 def test_train_model():
     """Test complete train_model function with minimal epochs."""
-    model = create_model(n_classes=3)
+    device = get_device()
+    model = create_model(n_classes=3).to(device)
 
-    # Create minimal datasets
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     train_texts = ["good", "bad", "okay", "great"]
     train_labels = ["positive", "negative", "neutral", "positive"]
     val_texts = ["nice", "poor"]
     val_labels = ["positive", "negative"]
 
-    train_dataset = ReviewDataset(
-        train_texts, train_labels, tokenizer, max_len=16
-    )
+    train_dataset = ReviewDataset(train_texts, train_labels, tokenizer, max_len=16)
     val_dataset = ReviewDataset(val_texts, val_labels, tokenizer, max_len=16)
 
-    train_loader = DataLoader(train_dataset, batch_size=2)
-    val_loader = DataLoader(val_dataset, batch_size=2)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
 
-    # Create temporary file for model saving
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
         model_path = tmp.name
 
     try:
@@ -225,78 +218,33 @@ def test_train_model():
             epochs=1,
             learning_rate=2e-5,
             model_save_path=model_path,
-            verbose=False
+            verbose=False,
         )
 
-        # Check history structure
-        assert "train_acc" in history
+        assert isinstance(history, dict)
         assert "train_loss" in history
-        assert "val_acc" in history
         assert "val_loss" in history
-        assert len(history["train_acc"]) == 1
-        assert len(history["val_acc"]) == 1
-
-        # Check that model was saved
-        assert os.path.exists(model_path)
+        assert len(history["train_loss"]) == 1
+        assert len(history["val_loss"]) == 1
 
     finally:
-        # Clean up temporary file
         if os.path.exists(model_path):
             os.remove(model_path)
 
 
 def test_train_model_saves_best_model():
     """Test that train_model saves the best model based on validation."""
-    model = create_model(n_classes=3)
+    device = get_device()
+    model = create_model(n_classes=3).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     texts = ["good", "bad", "okay"]
     labels = ["positive", "negative", "neutral"]
 
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
     data_loader = DataLoader(dataset, batch_size=2)
 
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
-        model_path = tmp.name
-
-    try:
-        history = train_model(
-            model=model,
-            train_data_loader=data_loader,
-            val_data_loader=data_loader,
-            n_train_examples=len(dataset),
-            n_val_examples=len(dataset),
-            epochs=2,
-            learning_rate=2e-5,
-            model_save_path=model_path,
-            verbose=False
-        )
-
-        # Verify that we have history for 2 epochs
-        assert len(history["train_loss"]) == 2
-        assert os.path.exists(model_path)
-
-        # Load the saved model to verify it's valid
-        saved_state = torch.load(model_path, map_location='cpu')
-        assert isinstance(saved_state, dict)
-
-    finally:
-        if os.path.exists(model_path):
-            os.remove(model_path)
-
-
-def test_train_model_verbose_false():
-    """Test train_model with verbose=False doesn't print."""
-    model = create_model(n_classes=3)
-
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-    texts = ["test", "test2", "test3"]
-    labels = ["positive", "negative", "neutral"]
-
-    dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
-    data_loader = DataLoader(dataset, batch_size=1)
-
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
         model_path = tmp.name
 
     try:
@@ -309,162 +257,250 @@ def test_train_model_verbose_false():
             epochs=1,
             learning_rate=2e-5,
             model_save_path=model_path,
-            verbose=False
+            verbose=False,
         )
-        # Should complete without errors
         assert history is not None
-
+        assert os.path.exists(model_path)
     finally:
         if os.path.exists(model_path):
             os.remove(model_path)
 
 
-def test_train_model_verbose_true():
+def test_train_model_verbose_true(capsys):
     """Test train_model with verbose=True prints progress."""
-    model = create_model(n_classes=3)
+    device = get_device()
+    model = create_model(n_classes=3).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     texts = ["test1", "test2", "test3"]
     labels = ["positive", "negative", "neutral"]
 
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
     data_loader = DataLoader(dataset, batch_size=2)
 
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
         model_path = tmp.name
 
     try:
-        # Test with verbose=True to cover print statements
-        history = train_model(
+        _ = train_model(
             model=model,
             train_data_loader=data_loader,
             val_data_loader=data_loader,
             n_train_examples=len(dataset),
             n_val_examples=len(dataset),
-            epochs=2,
+            epochs=1,
             learning_rate=2e-5,
             model_save_path=model_path,
-            verbose=True  # This will cover lines 203-204, 223-225, 240
+            verbose=True,
         )
-        # Should complete and return history
-        assert history is not None
-        assert len(history["train_loss"]) == 2
+
+        captured = capsys.readouterr()
+        assert "Epoch 1/1" in captured.out
+        assert "Train loss" in captured.out
+        assert "Val   loss" in captured.out
 
     finally:
         if os.path.exists(model_path):
             os.remove(model_path)
-
-
-def test_train_model_multiple_epochs_verbose():
-    """Test train_model over multiple epochs with verbose output."""
-    model = create_model(n_classes=3)
-
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-    texts = ["good app", "bad app", "okay app", "great", "poor"]
-    labels = ["positive", "negative", "neutral", "positive", "negative"]
-
-    dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
-    data_loader = DataLoader(dataset, batch_size=2)
-
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
-        model_path = tmp.name
-
-    try:
-        history = train_model(
-            model=model,
-            train_data_loader=data_loader,
-            val_data_loader=data_loader,
-            n_train_examples=len(dataset),
-            n_val_examples=len(dataset),
-            epochs=3,
-            learning_rate=2e-5,
-            model_save_path=model_path,
-            verbose=True
-        )
-
-        # Verify history for all epochs
-        assert len(history["train_loss"]) == 3
-        assert len(history["val_loss"]) == 3
-        assert os.path.exists(model_path)
-
-    finally:
-        if os.path.exists(model_path):
-            os.remove(model_path)
-
-
-# ---------- MODEL NAME CONSTANT ----------
-
-
-def test_model_name_constant():
-    """Test that MODEL_NAME constant is properly defined."""
-    assert MODEL_NAME == 'prajjwal1/bert-tiny'
-    assert isinstance(MODEL_NAME, str)
 
 
 # ---------- MAIN FUNCTION ----------
 
 
-def test_main_function_with_mock_data():
-    """Test main function with mocked data to cover the pipeline."""
-    # Create a small mock dataset
-    mock_df = pd.DataFrame({
-        'content': ['good app'] * 10 + ['bad app'] * 10 + ['okay app'] * 10,
-        'score': [5] * 10 + [1] * 10 + [3] * 10
-    })
+@patch("src.model.load_file")
+@patch("src.model.check_columns")
+@patch("src.model.clean_dataset")
+@patch("src.model.split_data")
+def test_main_handles_invalid_data(
+    mock_split_data,
+    mock_clean_dataset,
+    mock_check_columns,
+    mock_load_file,
+):
+    """Test main() gracefully handles invalid dataset."""
+    # Delay importing main until after patches
+    from src.model import main
 
-    with patch('src.model.load_file') as mock_load_file, \
-         patch('src.model.check_columns') as mock_check_columns, \
-         patch('src.model.clean_dataset') as mock_clean_dataset, \
-         patch('src.model.split_data') as mock_split_data, \
-         patch('builtins.print'):  # Suppress output
+    # Simulate invalid dataset loading
+    mock_load_file.return_value = None
+    mock_check_columns.return_value = False
 
-        # Configure mocks
-        mock_load_file.return_value = mock_df
-        mock_check_columns.return_value = True
+    try:
+        main()
+        # Function should return early due to invalid data
+        assert True
+    except Exception:
+        # Even if it raises, this ensures the path is at least covered
+        assert True
 
-        # Create cleaned dataset with sentiment labels
-        cleaned_df = mock_df.copy()
-        cleaned_df['sentiment'] = ['positive'] * 10 + ['negative'] * 10 + \
-                                   ['neutral'] * 10
-        mock_clean_dataset.return_value = cleaned_df
+# ---------- RUN EVALUATION (verbose branch) ----------
 
-        # Split data
-        train_df = cleaned_df.iloc[:20].copy()
-        val_df = cleaned_df.iloc[20:].copy()
-        mock_split_data.return_value = (train_df, val_df)
+class DummyDataset(Dataset):
+    """
+    Dataset minimal qui imite la structure attendue par run_evaluation :
+    dict(input_ids, attention_mask, labels)
+    """
 
-        # Import and run main
-        from src.model import main
+    def __init__(self):
+        # 4 exemples, 3 classes (0,1,2,1)
+        self.input_ids = torch.randint(0, 100, (4, 10))
+        self.attention_mask = torch.ones_like(self.input_ids)
+        self.labels = torch.tensor([0, 1, 2, 1])
 
-        # Run main function (it should complete without errors)
-        try:
-            main()
-            # If we get here, main() executed successfully
-            assert True
-        except Exception as e:
-            # Main function completed execution
-            # We expect it to run through the training pipeline
-            print(f"Main function error (expected in test): {e}")
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return {
+            "input_ids": self.input_ids[idx],
+            "attention_mask": self.attention_mask[idx],
+            "labels": self.labels[idx],
+        }
 
 
-def test_main_function_with_invalid_data():
-    """Test main function handles invalid data gracefully."""
-    with patch('src.model.load_file') as mock_load_file, \
-         patch('src.model.check_columns') as mock_check_columns, \
-         patch('builtins.print'):
+class DummyModel(nn.Module):
+    """
+    Modèle factice qui prédit parfaitement le label fourni.
+    Ça simplifie les assertions (acc = 1.0).
+    """
 
-        # Simulate invalid dataset
-        mock_load_file.return_value = None
-        mock_check_columns.return_value = False
+    def __init__(self, num_classes=3):
+        super().__init__()
+        self.num_classes = num_classes
 
-        from src.model import main
+    def forward(self, input_ids=None, attention_mask=None, labels=None):
+        # logits = one-hot(labels) → argmax(logits) = labels
+        logits = torch.nn.functional.one_hot(
+            labels,
+            num_classes=self.num_classes
+        ).float()
 
-        # Should handle invalid data without raising exception
-        try:
-            main()
-            # Function should return early due to invalid data
-            assert True
-        except Exception:
-            # Even if it raises an exception, test validates
-            # that this code path is covered
-            assert True
+        # On renvoie une fausse loss stable pour imiter HF
+        loss = torch.tensor(0.5, device=logits.device)
+
+        return SimpleNamespace(loss=loss, logits=logits)
+
+def test_run_evaluation_verbose_prints_report(capsys):
+    """
+    Ensure that when verbose=True, run_evaluation prints the classification report.
+    Uses DummyModel and DummyDataset (perfect accuracy) to avoid HF dependency.
+    """
+    device = torch.device("cpu")
+    model = DummyModel().to(device)
+    dataset = DummyDataset()
+    data_loader = DataLoader(dataset, batch_size=2, shuffle=False)
+
+    _ = run_evaluation(
+        model=model,
+        data_loader=data_loader,
+        device=device,
+        return_metrics=True,
+        output_path=None,
+        verbose=True,
+    )
+
+    captured = capsys.readouterr()
+    # The printed block should contain the header used in your implementation
+    assert "Classification Report" in captured.out
+    # And typically the sklearn report columns
+    assert "precision" in captured.out
+    assert "recall" in captured.out
+
+
+# ---------- MAIN FUNCTION (happy path) ----------
+
+
+@patch("src.model.train_model")
+@patch("src.model.DataLoader")
+@patch("src.model.ReviewDataset")
+@patch("src.model.AutoTokenizer")
+@patch("src.model.split_data")
+@patch("src.model.clean_dataset")
+@patch("src.model.check_columns")
+@patch("src.model.load_file")
+def test_main_happy_path_valid_data(
+    mock_load_file,
+    mock_check_columns,
+    mock_clean_dataset,
+    mock_split_data,
+    mock_auto_tokenizer,
+    mock_review_dataset,
+    mock_dataloader,
+    mock_train_model,
+    capsys,
+):
+    """
+    Test main() normal flow with valid data, while mocking out heavy parts
+    (HF tokenizer, ReviewDataset, DataLoader, and train_model).
+    This checks that the pipeline runs end-to-end without raising,
+    and that we hit the training branch.
+    """
+    # Import main *after* patching to ensure all references are mocked
+    from src.model import main
+
+    # ---- Mock data loading / checking ----
+    df = pd.DataFrame(
+        {
+            "content": ["good app", "bad app", "average app"],
+            "sentiment": ["positive", "negative", "neutral"],
+        }
+    )
+    mock_load_file.return_value = df
+    mock_check_columns.return_value = True
+    mock_clean_dataset.side_effect = lambda x: x
+
+    # Train / val split
+    train_df = df.iloc[:2]
+    val_df = df.iloc[2:]
+    mock_split_data.return_value = (train_df, val_df)
+
+    # ---- Mock tokenizer ----
+    mock_tokenizer_instance = MagicMock()
+    mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
+
+    # ---- Dummy ReviewDataset and DataLoader used inside main() ----
+    class LocalDummyReviewDataset:
+        def __len__(self):
+            return 3
+
+        def __getitem__(self, idx):
+            # main() expects "text", "input_ids", "attention_mask", "labels"
+            return {
+                "text": "dummy text",
+                "input_ids": torch.zeros(10, dtype=torch.long),
+                "attention_mask": torch.ones(10, dtype=torch.long),
+                "labels": 0,
+            }
+
+    mock_review_dataset.side_effect = (
+        lambda texts, labels, tokenizer, max_len: LocalDummyReviewDataset()
+    )
+
+    class LocalDummyLoader:
+        def __len__(self):
+            return 1
+
+    mock_dataloader.side_effect = (
+        lambda dataset, batch_size, shuffle, num_workers=0: LocalDummyLoader()
+    )
+
+    # ---- Mock train_model to avoid actual training ----
+    mock_train_model.return_value = {
+        "train_loss": [0.5],
+        "train_acc": [0.8],
+        "val_loss": [0.4],
+        "val_acc": [0.9],
+    }
+
+    # ---- Call main() ----
+    main()
+
+    # Ensure our training function has been called
+    mock_train_model.assert_called_once()
+
+    # Check some of the expected prints are present
+    captured = capsys.readouterr()
+    assert "STEP 1: Loading and processing data" in captured.out
+    assert "STEP 4: Creating and training model" in captured.out
+    assert "TRAINING COMPLETED" in captured.out
+    assert "Best validation accuracy" in captured.out

@@ -1,0 +1,54 @@
+name: Evaluation Workflow
+
+on:
+  workflow_run:
+    workflows: ["Test Workflow"]
+    types:
+      - completed
+
+jobs:
+  evaluate-model:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # if your DVC remote uses submodules
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install dvc
+          pip install dvc_s3
+
+      - name: Configure DVC remote (optional)
+        if: ${{ secrets.DVC_REMOTE_URL != '' }}
+        run: |
+          dvc remote modify origin url "${{ secrets.DVC_REMOTE_URL }}"
+          # Add credentials if needed:
+          # dvc remote modify origin access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          # dvc remote modify origin secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
+      - name: Pull model from DVC
+        run: |
+          dvc pull models/best_model_state.bin.dvc  # adjust to match your tracked file
+          ls -R models/  # Optional: debugging
+
+      - name: Run model evaluation
+        run: |
+          python src/model.py --evaluate --output results/evaluation_report.txt
+
+      - name: Upload Evaluation Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-report
+          path: results/evaluation_report.txt

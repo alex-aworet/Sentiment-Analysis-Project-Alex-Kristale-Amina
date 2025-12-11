@@ -41,7 +41,9 @@ class DummyModel:
 
     def __call__(self, input_ids=None, attention_mask=None):
         # Deterministic "logits" for 3 classes
-        logits = torch.tensor([[-1.0, 0.0, 1.0]])  # class 2 (positive) is max
+        logits = torch.tensor(
+            [[-1.0, 0.0, 1.0]]
+        )  # class 2 (positive) is max
         return types.SimpleNamespace(logits=logits)
 
 
@@ -62,7 +64,11 @@ def predictor_with_mocks(monkeypatch):
 
     # Device & model creation
     monkeypatch.setattr(inference, "get_device", lambda: "cpu")
-    monkeypatch.setattr(inference, "create_model", lambda n_classes, model_name: DummyModel())
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda n_classes, model_name: DummyModel(),
+    )
 
     # Tokenizer
     monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
@@ -101,13 +107,18 @@ def test_init_raises_if_model_missing(monkeypatch):
     # Prevent AutoTokenizer.from_pretrained from reaching the network
     monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
 
-    # (Optional safety) Avoid touching real device/model if order changes later
+    # (Optional safety) Avoid touching real device/model
     monkeypatch.setattr(inference, "get_device", lambda: "cpu")
-    monkeypatch.setattr(inference, "create_model", lambda *args, **kwargs: DummyModel())
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda *args, **kwargs: DummyModel(),
+    )
 
     with pytest.raises(FileNotFoundError):
-        inference.SentimentPredictor(model_path="does_not_exist.bin")
-
+        inference.SentimentPredictor(
+            model_path="does_not_exist.bin"
+        )
 
 
 def test_predict_returns_expected_structure_and_logs(predictor_with_mocks):
@@ -117,12 +128,21 @@ def test_predict_returns_expected_structure_and_logs(predictor_with_mocks):
     result = predictor.predict(text)
 
     # Structure
-    assert set(result.keys()) == {"text", "sentiment", "confidence", "probabilities"}
+    assert set(result.keys()) == {
+        "text",
+        "sentiment",
+        "confidence",
+        "probabilities",
+    }
     assert result["text"] == text
     assert isinstance(result["sentiment"], str)
     assert isinstance(result["confidence"], float)
     assert isinstance(result["probabilities"], dict)
-    assert set(result["probabilities"].keys()) == {"negative", "neutral", "positive"}
+    assert set(result["probabilities"].keys()) == {
+        "negative",
+        "neutral",
+        "positive",
+    }
 
     # From DummyModel logits, class 2 ("positive") should be chosen
     assert result["sentiment"] == "positive"
@@ -145,10 +165,20 @@ def test_predict_batch_uses_predict(predictor_with_mocks, monkeypatch):
 
     def fake_predict(self, text):
         calls.append(text)
-        return {"text": text, "sentiment": "neutral", "confidence": 0.5, "probabilities": {}}
+        return {
+            "text": text,
+            "sentiment": "neutral",
+            "confidence": 0.5,
+            "probabilities": {},
+        }
 
     # Patch the method on the class so predict_batch uses our fake
-    monkeypatch.setattr(inference.SentimentPredictor, "predict", fake_predict, raising=False)
+    monkeypatch.setattr(
+        inference.SentimentPredictor,
+        "predict",
+        fake_predict,
+        raising=False,
+    )
 
     texts = ["a", "b", "c"]
     results = predictor.predict_batch(texts)
@@ -168,7 +198,11 @@ def test_main_with_text_argument(monkeypatch, capsys):
     # Reuse the mocking strategy above, but patch within the module used by main()
     monkeypatch.setattr(os.path, "exists", lambda path: True)
     monkeypatch.setattr(inference, "get_device", lambda: "cpu")
-    monkeypatch.setattr(inference, "create_model", lambda n_classes, model_name: DummyModel())
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda n_classes, model_name: DummyModel(),
+    )
     monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
     monkeypatch.setattr(torch, "load", lambda *args, **kwargs: {})
     monkeypatch.setattr(inference, "log_inference", lambda **kwargs: None)
@@ -177,7 +211,13 @@ def test_main_with_text_argument(monkeypatch, capsys):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["prog", "--model_path", "models/best_model_state.bin", "--text", "hello world"],
+        [
+            "prog",
+            "--model_path",
+            "models/best_model_state.bin",
+            "--text",
+            "hello world",
+        ],
     )
 
     # Run main

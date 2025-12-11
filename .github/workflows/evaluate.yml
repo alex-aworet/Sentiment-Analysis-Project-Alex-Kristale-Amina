@@ -16,11 +16,14 @@ jobs:
       }}
     runs-on: ubuntu-latest
 
+    env:
+      DVC_REMOTE_URL: ${{ secrets.DVC_REMOTE_URL }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive  # if your DVC remote uses submodules
+          submodules: recursive
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -35,17 +38,17 @@ jobs:
           pip install dvc_s3
 
       - name: Configure DVC remote (optional)
-        if: ${{ secrets.DVC_REMOTE_URL != '' }}
+        if: ${{ env.DVC_REMOTE_URL != '' }}
         run: |
-          dvc remote modify origin url "${{ secrets.DVC_REMOTE_URL }}"
+          dvc remote modify origin url "$DVC_REMOTE_URL"
           # Add credentials if needed:
           # dvc remote modify origin access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           # dvc remote modify origin secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
       - name: Pull model from DVC
         run: |
-          dvc pull models/best_model_state.bin.dvc  # adjust to match your tracked file
-          ls -R models/  # Optional: debugging
+          dvc pull models/best_model_state.bin.dvc
+          ls -R models/
 
       - name: Run model evaluation
         run: |

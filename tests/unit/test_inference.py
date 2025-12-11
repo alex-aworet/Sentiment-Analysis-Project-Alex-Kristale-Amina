@@ -1,232 +1,232 @@
-# flake8: noqa
-"""
-test_model.py - Unit tests for model.py
-"""
-
+import types
 import os
 import sys
-import tempfile
-from unittest.mock import patch
 
-import pandas as pd
+import pytest
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from transformers import AutoTokenizer
 
-# Add project root to PYTHONPATH
-sys.path.append(
-    os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..")
-    )
-)
-
-from src.data_processing import ReviewDataset
-from src.model import (
-    MODEL_NAME,
-    create_model,
-    create_optimizer_and_scheduler,
-    eval_model,
-    get_device,
-    train_epoch,
-    train_model,
-)
+import src.inference as inference
 
 
-# ---------- GET DEVICE ----------
-
-
-def test_get_device_returns_torch_device():
-    device = get_device()
-    assert isinstance(device, torch.device)
-    assert device.type in ["cuda", "cpu"]
-
-
-# ---------- CREATE MODEL ----------
-
-
-def test_create_model_returns_model():
-    model = create_model(n_classes=3)
-    assert model is not None
-    assert model.config.num_labels == 3
-
-
-def test_create_model_custom_dropout():
-    model = create_model(n_classes=3, dropout=0.5)
-    assert model.config.hidden_dropout_prob == 0.5
-    assert model.config.attention_probs_dropout_prob == 0.5
-
-
-def test_create_model_custom_model_name():
-    model = create_model(
-        n_classes=3,
-        model_name="prajjwal1/bert-tiny",
-        dropout=0.1,
-    )
-    assert model.config.num_labels == 3
-
-
-def test_create_model_on_device():
-    model = create_model(n_classes=3)
-    device = get_device()
-    assert next(model.parameters()).device.type == device.type
-
-
-# ---------- OPTIMIZER & SCHEDULER ----------
-
-
-def test_create_optimizer_and_scheduler():
-    model = create_model(n_classes=3)
-
-    dummy_data = TensorDataset(
-        torch.randint(0, 100, (10, 16)),
-        torch.randint(0, 2, (10, 16)),
-        torch.randint(0, 3, (10,)),
-    )
-    loader = DataLoader(dummy_data, batch_size=2)
-
-    optimizer, scheduler = create_optimizer_and_scheduler(
-        model=model,
-        train_data_loader=loader,
-        epochs=2,
-        learning_rate=1e-5,
-    )
-
-    assert optimizer is not None
-    assert scheduler is not None
-    assert optimizer.param_groups[0]["lr"] == 1e-5
-
-
-# ---------- TRAIN / EVAL ----------
-
-
-def test_train_epoch():
-    device = get_device()
-    model = create_model(n_classes=3)
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-
-    dataset = ReviewDataset(
-        ["good", "bad", "ok"],
-        ["positive", "negative", "neutral"],
-        tokenizer,
-        max_len=16,
-    )
-
-    loader = DataLoader(dataset, batch_size=2)
-
-    optimizer, scheduler = create_optimizer_and_scheduler(
-        model=model,
-        train_data_loader=loader,
-        epochs=1,
-        learning_rate=2e-5,
-    )
-
-    acc, loss = train_epoch(
-        model,
-        loader,
-        optimizer,
-        device,
-        scheduler,
-        len(dataset),
-    )
-
-    assert 0 <= float(acc) <= 1
-    assert loss >= 0
-
-
-def test_eval_model():
-    device = get_device()
-    model = create_model(n_classes=3)
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-
-    dataset = ReviewDataset(
-        ["good", "bad"],
-        ["positive", "negative"],
-        tokenizer,
-        max_len=16,
-    )
-    loader = DataLoader(dataset, batch_size=2)
-
-    acc, loss = eval_model(model, loader, device, len(dataset))
-
-    assert 0 <= float(acc) <= 1
-    assert loss >= 0
-
-
-# ---------- TRAIN MODEL ----------
-
-
-def test_train_model_saves_best_model():
-    model = create_model(n_classes=3)
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
-
-    dataset = ReviewDataset(
-        ["good", "bad", "ok"],
-        ["positive", "negative", "neutral"],
-        tokenizer,
-        max_len=16,
-    )
-
-    loader = DataLoader(dataset, batch_size=2)
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
-        path = tmp.name
-
-    try:
-        history = train_model(
-            model,
-            loader,
-            loader,
-            len(dataset),
-            len(dataset),
-            epochs=2,
-            model_save_path=path,
-            verbose=False,
-        )
-
-        assert len(history["train_loss"]) == 2
-        assert os.path.exists(path)
-
-    finally:
-        os.remove(path)
-
-
-# ---------- MODEL NAME ----------
-
-
-def test_model_name_constant():
-    assert MODEL_NAME == "prajjwal1/bert-tiny"
-    assert isinstance(MODEL_NAME, str)
-
-
-# ---------- MAIN ----------
-
-
-def test_main_function_with_mock_data():
-    mock_df = pd.DataFrame(
-        {
-            "content": ["good app"] * 10 + ["bad app"] * 10 + ["ok app"] * 10,
-            "score": [5] * 10 + [1] * 10 + [3] * 10,
-        }
-    )
-
-    with (
-        patch("src.model.load_file", return_value=mock_df),
-        patch("src.model.check_columns", return_value=True),
-        patch("src.model.split_data") as mock_split,
-        patch("builtins.print"),
+class DummyTokenizer:
+    def encode_plus(
+        self,
+        text,
+        add_special_tokens=True,
+        max_length=128,
+        padding="max_length",
+        truncation=True,
+        return_attention_mask=True,
+        return_tensors="pt",
     ):
-        cleaned_df = mock_df.copy()
-        cleaned_df["sentiment"] = (
-            ["positive"] * 10
-            + ["negative"] * 10
-            + ["neutral"] * 10
+        # Return minimal tensors with a .to() method
+        input_ids = torch.tensor([[1, 2, 3]])
+        attention_mask = torch.tensor([[1, 1, 1]])
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
+
+
+class DummyModel:
+    def __init__(self, *args, **kwargs):
+        self.state_dict = {}
+
+    def load_state_dict(self, state_dict):
+        self.state_dict = state_dict
+
+    def eval(self):
+        # No-op for testing
+        return self
+
+    def __call__(self, input_ids=None, attention_mask=None):
+        # Deterministic "logits" for 3 classes
+        logits = torch.tensor(
+            [[-1.0, 0.0, 1.0]]
+        )  # class 2 (positive) is max
+        return types.SimpleNamespace(logits=logits)
+
+
+class DummyAutoTokenizer:
+    @classmethod
+    def from_pretrained(cls, model_name):
+        return DummyTokenizer()
+
+
+@pytest.fixture
+def predictor_with_mocks(monkeypatch):
+    """
+    Fixture that prepares a SentimentPredictor instance with
+    all external dependencies mocked.
+    """
+    # Always pretend the model file exists
+    monkeypatch.setattr(os.path, "exists", lambda path: True)
+
+    # Device & model creation
+    monkeypatch.setattr(inference, "get_device", lambda: "cpu")
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda n_classes, model_name: DummyModel(),
+    )
+
+    # Tokenizer
+    monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
+
+    # torch.load -> return dummy state dict
+    monkeypatch.setattr(torch, "load", lambda *args, **kwargs: {})
+
+    # Capture calls to log_inference
+    log_calls = []
+
+    def fake_log_inference(text, sentiment, confidence):
+        log_calls.append(
+            {
+                "text": text,
+                "sentiment": sentiment,
+                "confidence": confidence,
+            }
         )
 
-        mock_split.return_value = (
-            cleaned_df.iloc[:20],
-            cleaned_df.iloc[20:],
+    monkeypatch.setattr(inference, "log_inference", fake_log_inference)
+
+    predictor = inference.SentimentPredictor(
+        model_path="models/best_model_state.bin",
+        model_name="dummy-model",
+        n_classes=3,
+        max_len=128,
+    )
+    return predictor, log_calls
+
+
+def test_init_raises_if_model_missing(monkeypatch):
+    """SentimentPredictor should raise if the model file does not exist."""
+    # Make os.path.exists always return False so FileNotFoundError is triggered
+    monkeypatch.setattr(os.path, "exists", lambda path: False)
+
+    # Prevent AutoTokenizer.from_pretrained from reaching the network
+    monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
+
+    # (Optional safety) Avoid touching real device/model
+    monkeypatch.setattr(inference, "get_device", lambda: "cpu")
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda *args, **kwargs: DummyModel(),
+    )
+
+    with pytest.raises(FileNotFoundError):
+        inference.SentimentPredictor(
+            model_path="does_not_exist.bin"
         )
 
-        from src.model import main
 
-        main()
+def test_predict_returns_expected_structure_and_logs(predictor_with_mocks):
+    predictor, log_calls = predictor_with_mocks
+
+    text = "This is amazing!"
+    result = predictor.predict(text)
+
+    # Structure
+    assert set(result.keys()) == {
+        "text",
+        "sentiment",
+        "confidence",
+        "probabilities",
+    }
+    assert result["text"] == text
+    assert isinstance(result["sentiment"], str)
+    assert isinstance(result["confidence"], float)
+    assert isinstance(result["probabilities"], dict)
+    assert set(result["probabilities"].keys()) == {
+        "negative",
+        "neutral",
+        "positive",
+    }
+
+    # From DummyModel logits, class 2 ("positive") should be chosen
+    assert result["sentiment"] == "positive"
+
+    # Probabilities should sum (approximately) to 1
+    prob_sum = sum(result["probabilities"].values())
+    assert pytest.approx(prob_sum, rel=1e-5) == 1.0
+
+    # API should have logged the inference once
+    assert len(log_calls) == 1
+    assert log_calls[0]["text"] == text
+    assert log_calls[0]["sentiment"] == "positive"
+    assert isinstance(log_calls[0]["confidence"], float)
+
+
+def test_predict_batch_uses_predict(predictor_with_mocks, monkeypatch):
+    predictor, _ = predictor_with_mocks
+
+    calls = []
+
+    def fake_predict(self, text):
+        calls.append(text)
+        return {
+            "text": text,
+            "sentiment": "neutral",
+            "confidence": 0.5,
+            "probabilities": {},
+        }
+
+    # Patch the method on the class so predict_batch uses our fake
+    monkeypatch.setattr(
+        inference.SentimentPredictor,
+        "predict",
+        fake_predict,
+        raising=False,
+    )
+
+    texts = ["a", "b", "c"]
+    results = predictor.predict_batch(texts)
+
+    assert len(results) == len(texts)
+    assert calls == texts
+    for t, r in zip(texts, results):
+        assert r["text"] == t
+        assert r["sentiment"] == "neutral"
+
+
+def test_main_with_text_argument(monkeypatch, capsys):
+    """
+    Smoke test for main() when --text is provided.
+    Ensures it runs end-to-end without crashing and prints expected parts.
+    """
+    monkeypatch.setattr(os.path, "exists", lambda path: True)
+    monkeypatch.setattr(inference, "get_device", lambda: "cpu")
+    monkeypatch.setattr(
+        inference,
+        "create_model",
+        lambda n_classes, model_name: DummyModel(),
+    )
+    monkeypatch.setattr(inference, "AutoTokenizer", DummyAutoTokenizer)
+    monkeypatch.setattr(torch, "load", lambda *args, **kwargs: {})
+    monkeypatch.setattr(inference, "log_inference", lambda **kwargs: None)
+
+    # Fake CLI args
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prog",
+            "--model_path",
+            "models/best_model_state.bin",
+            "--text",
+            "hello world",
+        ],
+    )
+
+    # Run main
+    inference.main()
+
+    captured = capsys.readouterr()
+    out = captured.out
+
+    # Basic sanity checks on output text
+    assert "SENTIMENT ANALYSIS INFERENCE" in out
+    assert "Text: hello world" in out
+    assert "Sentiment:" in out
+    assert "Confidence:" in out

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS inference_logs (
+    id SERIAL PRIMARY KEY,
+    text TEXT NOT NULL,
+    sentiment VARCHAR(20) NOT NULL,
+    confidence FLOAT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import pandas as pd
+import pytest
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -20,7 +21,7 @@ columns = ["content", "score",
 def make_valid_df():
     """
     Create a valid dataframe that contains all the required columns
-    each column has a singke value 'ok' for simplicity
+    each column has a single value 'ok' for simplicity
     """
     data = {col: ["ok"] for col in columns}
     return pd.DataFrame(data)
@@ -65,11 +66,12 @@ def test_wrong_file_extension():
     data, path = tempfile.mkstemp(suffix='.txt')
     os.close(data)
     try:
-        load_file(path)
-        assert False, "Expected ValueError for non-csv file"
-    except ValueError as e:
+        with pytest.raises(ValueError) as e:
+            load_file(path)
         assert "csv" in str(e).lower()
         assert "must" in str(e).lower()
+    finally:
+        os.remove(path)
 
 
 def test_missing_file():
@@ -136,17 +138,3 @@ def test_end_to_end():
     loaded_df = loaded_df.drop(columns=["at"])
     assert check_columns(loaded_df) is False
 
-
-def run_all_tests():
-    test_load_file_valid()
-    test_wrong_file_extension()
-    test_missing_file()
-    test_check_columns_valid()
-    test_check_columns_missing()
-    test_check_columns_more_missing_columns()
-    test_end_to_end()
-    print("All tests passed")
-
-
-if __name__ == "__main__":
-    print(run_all_tests())

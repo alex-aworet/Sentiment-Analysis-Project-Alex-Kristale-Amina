@@ -4,5 +4,3 @@ pytest-cov
 flake8
 torch
 transformers
-scikit-learn
-numpy

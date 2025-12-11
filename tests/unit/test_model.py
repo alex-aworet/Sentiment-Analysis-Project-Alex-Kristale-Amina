@@ -50,7 +50,7 @@ def test_create_model_returns_model():
 
 def test_create_model_custom_dropout():
     """Test create_model with custom dropout parameter."""
-    model = create_model(n_classes=2, dropout=0.5)
+    model = create_model(n_classes=3, dropout=0.5)
     assert model.config.hidden_dropout_prob == 0.5
     assert model.config.attention_probs_dropout_prob == 0.5
 
@@ -58,11 +58,11 @@ def test_create_model_custom_dropout():
 def test_create_model_custom_model_name():
     """Test create_model with a different model name."""
     model = create_model(
-        n_classes=2,
-        model_name="bert-base-uncased",
+        n_classes=3,
+        model_name="prajjwal1/bert-tiny",
         dropout=0.1
     )
-    assert model.config.num_labels == 2
+    assert model.config.num_labels == 3
 
 
 def test_create_model_on_device():
@@ -110,7 +110,7 @@ def test_train_epoch():
     model.train()
 
     # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["good app", "bad app", "okay app"]
     labels = ["positive", "negative", "neutral"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -148,7 +148,7 @@ def test_eval_model():
     model.eval()
 
     # Create minimal dataset
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["good app", "bad app"]
     labels = ["positive", "negative"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -172,7 +172,7 @@ def test_eval_model_no_gradient():
     device = get_device()
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["test"]
     labels = ["positive"]
     dataset = ReviewDataset(texts, labels, tokenizer, max_len=16)
@@ -197,7 +197,7 @@ def test_train_model():
     model = create_model(n_classes=3)
 
     # Create minimal datasets
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     train_texts = ["good", "bad", "okay", "great"]
     train_labels = ["positive", "negative", "neutral", "positive"]
     val_texts = ["nice", "poor"]
@@ -249,7 +249,7 @@ def test_train_model_saves_best_model():
     """Test that train_model saves the best model based on validation."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["good", "bad", "okay"]
     labels = ["positive", "negative", "neutral"]
 
@@ -289,7 +289,7 @@ def test_train_model_verbose_false():
     """Test train_model with verbose=False doesn't print."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["test", "test2", "test3"]
     labels = ["positive", "negative", "neutral"]
 
@@ -323,7 +323,7 @@ def test_train_model_verbose_true():
     """Test train_model with verbose=True prints progress."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["test1", "test2", "test3"]
     labels = ["positive", "negative", "neutral"]
 
@@ -359,7 +359,7 @@ def test_train_model_multiple_epochs_verbose():
     """Test train_model over multiple epochs with verbose output."""
     model = create_model(n_classes=3)
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
     texts = ["good app", "bad app", "okay app", "great", "poor"]
     labels = ["positive", "negative", "neutral", "positive", "negative"]
 
@@ -397,7 +397,7 @@ def test_train_model_multiple_epochs_verbose():
 
 def test_model_name_constant():
     """Test that MODEL_NAME constant is properly defined."""
-    assert MODEL_NAME == 'bert-base-cased'
+    assert MODEL_NAME == 'prajjwal1/bert-tiny'
     assert isinstance(MODEL_NAME, str)
 
 

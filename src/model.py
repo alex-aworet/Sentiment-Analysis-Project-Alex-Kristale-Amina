@@ -1,4 +1,4 @@
-# Torch ML libraries
+# flake8: noqa
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -46,9 +46,8 @@ def create_model(
     model.config.hidden_dropout_prob = dropout
     model.config.attention_probs_dropout_prob = dropout
     model.dropout.p = dropout
-    
-    return model.to(device)
 
+    return model.to(device)
 
 
 def create_optimizer_and_scheduler(

@@ -1,0 +1,7 @@
+[core]
+    remote = s3remote
+['remote "gdrive"']
+    url = gdrive://1izbW1rHWQTncsEe7TSHe9eJwHi1yCayG
+['remote "s3remote"']
+    url = s3://sentiment-analysis-bucket-practice/storage
+    region = eu-west-3

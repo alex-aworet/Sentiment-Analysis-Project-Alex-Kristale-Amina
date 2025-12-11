@@ -15,14 +15,27 @@ import argparse
 import sys
 import os
 
-# Import data processing functions and dataset class
-from data_processing import (
-    clean_dataset,
-    split_data,
-    ReviewDataset
-)
+try:
+# Import data processing functions and dataset class  
 
-from data_processing import load_file, check_columns
+    from data_processing import (
+        clean_dataset,
+        split_data,
+        ReviewDataset
+    )
+except ModuleNotFoundError:
+
+        from src.data_processing import (
+        clean_dataset,
+        split_data,
+        ReviewDataset
+    )  
+
+
+try:
+    from data_extraction import load_file, check_columns
+except ModuleNotFoundError:
+    from src.data_extraction import load_file, check_columns
 
 from sklearn.metrics import classification_report
 

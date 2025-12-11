@@ -27,12 +27,9 @@ from src.model import (  # noqa: E402
     train_model,
     MODEL_NAME,
 )
-from src.data_processing import ReviewDataset  # noqa: E402
+from src.data_processing import ReviewDataset
 
 from types import SimpleNamespace
-
-from src.model import run_evaluation
-
 
 
 # ---------- GET DEVICE ----------

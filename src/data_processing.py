@@ -2,7 +2,7 @@
 data_processing.py
 """
 
-from data_extraction import load_file, check_columns
+from src.data_extraction import load_file, check_columns
 import re
 import pandas as pd
 from sklearn.model_selection import train_test_split

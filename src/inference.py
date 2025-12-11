@@ -26,8 +26,6 @@ class SentimentPredictor:
         n_classes: int = 3,
         max_len: int = 160  # pour matcher l'entraînement
     ):
-        ...
-
         """
         Initialize the sentiment predictor.
 

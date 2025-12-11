@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from collections import defaultdict
 from typing import Tuple, Dict, List
+import argparse
 import sys
 import os
 
@@ -21,6 +22,8 @@ from src.data_processing import (
     split_data,
     ReviewDataset
 )
+
+from sklearn.metrics import classification_report
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -114,18 +117,26 @@ def train_epoch(
     return correct_predictions.double() / n_examples, np.mean(losses)
 
 
-def eval_model(
+def run_evaluation(
     model: nn.Module,
     data_loader: DataLoader,
     device: torch.device,
-    n_examples: int
-) -> Tuple[float, float]:
+    return_metrics: bool = False,
+    output_path: str | None = None,
+    verbose: bool = True
+):
     """
-    Evaluate the model on validation/test data.
+    Can return only (acc, loss) OR full metrics, OR write a report.
+
+    Used both during training and from CLI.
     """
+
     model.eval()
     losses = []
     correct_predictions = 0
+
+    all_labels = []
+    all_preds = []
 
     with torch.no_grad():
         for d in data_loader:
@@ -143,10 +154,68 @@ def eval_model(
             logits = outputs.logits
 
             _, preds = torch.max(logits, dim=1)
+
             correct_predictions += torch.sum(preds == labels)
             losses.append(loss.item())
 
-    return correct_predictions.double() / n_examples, np.mean(losses)
+            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy())
+
+    n_examples = len(all_labels)
+    acc_tensor = correct_predictions.double() / n_examples
+    mean_loss = np.mean(losses)
+
+    # --------------------------
+    # BASIC MODE (training)
+    # --------------------------
+    if not return_metrics:
+        return acc_tensor, mean_loss
+
+    # --------------------------
+    # FULL METRICS MODE (CLI)
+    # --------------------------
+    all_labels = np.array(all_labels)
+    all_preds = np.array(all_preds)
+
+    target_names = ["negative", "neutral", "positive"]
+    clf_report = classification_report(
+        all_labels, all_preds, target_names=target_names, zero_division=0
+    )
+
+    # build report
+    report = f"""
+Classification Report:
+{clf_report}
+"""
+
+    if verbose:
+        print(report)
+
+    if output_path:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(report)
+        print(f"\nSaved evaluation report → {output_path}")
+
+    # ---- Threshold check for CI ----
+    MINIMUM_ACCURACY = 0.60
+    acc_value = float(acc_tensor)
+
+    if acc_value < MINIMUM_ACCURACY:
+        msg = (
+            f"Warning: Model accuracy {acc_value:.4f} is below the minimum "
+            f"threshold of {MINIMUM_ACCURACY:.4f}."
+        )
+        print(msg)
+        # Non-zero exit code → GitHub Actions step fails
+        sys.exit(1)
+
+    return {
+        "acc": acc_value,
+        "loss": float(mean_loss),
+        "report": clf_report
+    }
+
 
 
 def train_model(
@@ -170,7 +239,6 @@ def train_model(
         train_data_loader: DataLoader for training data
         val_data_loader: DataLoader for validation data
         n_train_examples: Number of training examples
-        n_val_examples: Number of validation examples
         epochs: Number of epochs to train
         learning_rate: Learning rate for optimizer
         use_amp: Whether to use automatic mixed precision
@@ -208,12 +276,13 @@ def train_model(
             n_train_examples
         )
 
-        val_acc, val_loss = eval_model(
+        val_acc, val_loss = run_evaluation(
             model,
             val_data_loader,
             device,
-            n_val_examples
+            return_metrics=False
         )
+
 
         if verbose:
             print(f"Train loss {train_loss:.4f}, acc {train_acc:.4f}")
@@ -412,4 +481,52 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Run evaluation instead of training."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to save evaluation report, e.g. results/evaluation_report.txt"
+    )
+    args = parser.parse_args()
+    if args.evaluate:
+        # load dataset
+        df = load_file("data/dataset.csv")
+        df = clean_dataset(df)
+        _, val_df = split_data(df, test_size=0.2, random_state=42)
+
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+        # IMPORTANT: use .to_numpy() so indexing is 0..N-1
+        val_dataset = ReviewDataset(
+            texts=val_df["content"].to_numpy(),
+            labels=val_df["sentiment"].to_numpy(),
+            tokenizer=tokenizer,
+            max_len=128
+        )
+
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=16,
+            shuffle=False
+        )
+
+        # load model
+        model = create_model(3)
+        model.load_state_dict(torch.load("models/best_model_state.bin"))
+
+        run_evaluation(
+            model=model,
+            data_loader=val_loader,
+            device=get_device(),
+            return_metrics=True,
+            output_path=args.output
+        )
+    else:
+        main()

@@ -195,7 +195,6 @@ def test_main_with_text_argument(monkeypatch, capsys):
     Smoke test for main() when --text is provided.
     Ensures it runs end-to-end without crashing and prints expected parts.
     """
-    # Reuse the mocking strategy above, but patch within the module used by main()
     monkeypatch.setattr(os.path, "exists", lambda path: True)
     monkeypatch.setattr(inference, "get_device", lambda: "cpu")
     monkeypatch.setattr(

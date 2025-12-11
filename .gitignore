@@ -19,7 +19,11 @@
 .env.*
 venv/
 
-models/
+# Ignorer tous les fichiers dans models/
+models/*
+
+# MAIS garder les fichiers .dvc
+!models/*.dvc
 
 # Local configuration that shouldn't be shared
 *.local

@@ -1,0 +1,15 @@
+.git
+__pycache__
+*.pyc
+venv/
+env/
+*.db
+*.zip
+*.tar
+*.gz
+*.h5
+*.pt
+*.pkl
+node_modules/
+data/
+cache/

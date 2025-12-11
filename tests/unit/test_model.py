@@ -1,3 +1,4 @@
+# flake8: noqa
 """
 test_model.py - Unit tests for model.py
 """

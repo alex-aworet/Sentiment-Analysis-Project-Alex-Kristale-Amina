@@ -9,5 +9,26 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+    depends_on:
+      - db
     environment:
       - PYTHONPATH=/app
+      - DB_HOST=db
+      - DB_NAME=sentiment_logs
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+  db:
+    image: postgres:15
+    container_name: sentiment_db
+    environment:
+      POSTGRES_DB: sentiment_logs
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:

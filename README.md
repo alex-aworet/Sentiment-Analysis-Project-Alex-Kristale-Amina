@@ -382,4 +382,4 @@ This is an educational project developed as part of the PGE3 MLOps curriculum.
 
 **Current Branch:** feature-inference
 
-**Last Updated:** 2025-10-30
+**Last Updated:** 2025-12-11

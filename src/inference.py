@@ -14,13 +14,16 @@ from transformers import AutoTokenizer
 from src.model import MODEL_NAME, create_model, get_device
 from src.database import log_inference
 
+from pathlib import Path
+
 
 class SentimentPredictor:
     """Class for making sentiment predictions on new text."""
 
     def __init__(
         self,
-        model_path: str = "models/best_model_state.bin",
+        model_path: str = Path(__file__).resolve().parents[1] / "models" / "best_model_state.bin"
+,
         model_name: str = MODEL_NAME,
         n_classes: int = 3,
         max_len: int = 128,

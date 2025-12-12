@@ -22,8 +22,8 @@ class SentimentPredictor:
 
     def __init__(
         self,
-        model_path: str = Path(__file__).resolve().parents[1] / "models" / "best_model_state.bin"
-,
+        model_path: str = Path(__file__).resolve().parents[1]
+        / "models" / "best_model_state.bin",
         model_name: str = MODEL_NAME,
         n_classes: int = 3,
         max_len: int = 128,

@@ -51,8 +51,8 @@ jobs:
 
       - name: Run model evaluation
         run: |
-          python model.py --evaluate --output results/evaluation_report.txt
-          
+          python -m src.model --evaluate --output results/evaluation_report.txt
+
       - name: Upload Evaluation Report
         if: always()
         uses: actions/upload-artifact@v4
